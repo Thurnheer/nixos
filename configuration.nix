@@ -94,6 +94,7 @@
     packages = with pkgs; [
     #  thunderbird
      vscode-with-extensions
+     taskwarrior3
      #teams
     ];
   };
