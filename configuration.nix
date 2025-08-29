@@ -30,6 +30,7 @@
   # Set your time zone.
   time.timeZone = "Europe/Zurich";
 
+
   # Select internationalisation properties.
   i18n.defaultLocale = "en_US.UTF-8";
 
@@ -68,6 +69,9 @@
 
   # Enable sound with pipewire.
   hardware.pulseaudio.enable = false;
+  hardware.bluetooth.enable = true; # enables support for Bluetooth
+  hardware.bluetooth.powerOnBoot = true; # powers up the default Bluetooth controller on boot
+
   security.rtkit.enable = true;
   services.pipewire = {
     enable = true;
@@ -82,6 +86,13 @@
     #media-session.enable = true;
   };
 
+  # enable bluetooth headphone buttons
+  systemd.user.services.mpris-proxy = {
+    description = "Mpris proxy";
+    after = [ "network.target" "sound.target" ];
+    wantedBy = [ "default.target" ];
+    serviceConfig.ExecStart = "${pkgs.bluez}/bin/mpris-proxy";
+    };
   # Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
 
@@ -90,10 +101,35 @@
     isNormalUser = true;
     description = "Christoph";
     extraGroups = [ "networkmanager" "wheel" "sys" "network" "power" "vboxusers" "docker" "lp"
-    "win10disk" "disk"];
+    "win10disk" "disk" "dialout" "docker"];
     packages = with pkgs; [
+       docker_26
     #  thunderbird
-     vscode-with-extensions
+     (vscode-with-extensions.override {
+        vscodeExtensions = with vscode-extensions; [
+        ms-vscode.cmake-tools
+        ms-vscode.cpptools-extension-pack
+        llvm-vs-code-extensions.vscode-clangd
+        ms-vscode.cmake-tools
+        ms-vscode-remote.remote-containers
+        ] ++ pkgs.vscode-utils.extensionsFromVscodeMarketplace [
+        #{
+            #name = "remote-ssh-edit";
+            #publisher = "dan-c-underwood.arm";
+            #version = "1.7.4";
+        #}
+        #{
+            #name = "remote-ssh-edit";
+            #publisher = "marus25.cortex-debug";
+            #version = "1.12.1";
+        #}
+        #{
+            #name = "remote-ssh-edit";
+            #publisher = "mcu-debug.debug-tracker-vscode";
+            #version = "0.0.15";
+        #}
+        ];
+     })
      taskwarrior3
      #teams
     ];
@@ -121,6 +157,12 @@
   programs.firefox.enable = true;
   programs.zsh.enable = true;
 
+  services = {
+      udev.packages = with pkgs; [ 
+          segger-jlink
+      ];
+    };
+
     services.udev.extraRules = ''
         ENV{ID_PART_TABLE_UUID}=='579b23f9-843f-4fec-a246-0ed74800bef1", GROUP="win10disk"
     '';
@@ -135,6 +177,7 @@
    users.extraGroups.vboxusers.members = [ "cth" "win10disk" "disk" ];
    virtualisation.virtualbox.host.enableExtensionPack = true;
 
+   virtualisation.docker.enable = true;
   #console config
   fonts.packages = with pkgs; [nerdfonts];
   fonts.fontDir.enable = true;
@@ -143,6 +186,7 @@
   # $ nix search wget
   environment.systemPackages = with pkgs; [
      neovim
+     xclip
      vimPlugins.vim-plug
      git
      just
