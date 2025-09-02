@@ -187,6 +187,7 @@
   environment.systemPackages = with pkgs; [
      neovim
      xclip
+     devbox
      vimPlugins.vim-plug
      git
      just
