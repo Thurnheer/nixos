@@ -17,7 +17,7 @@
     # List of modules that are always loaded by the initrd.
       kernelModules = [
         "evdi"
-        #"nvidia"
+        "nvidia"
       ];
     };
   };
@@ -52,25 +52,28 @@
 
   hardware.graphics.enable = true;
   hardware.graphics.enable32Bit = true;
-  services.xserver.videoDrivers = [ "nouveau" "modesetting" ];
+  hardware.graphics.extraPackages = with pkgs; [
+    vpl-gpu-rt
+    ];
+  services.xserver.videoDrivers = [ "nvidia" "intel-vaapi-driver" ];
   #hardware.nvidia.open = false;
 
-  #hardware.nvidia = {
-  #  modesetting.enable = true;
-  #  powerManagement.enable = false;
-  #  open = false;
-    #nvidiaSettings = true;
-    #package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
-  #};
+  hardware.nvidia = {
+    modesetting.enable = true;
+    powerManagement.enable = false;
+    open = false;
+    nvidiaSettings = true;
+    package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
+  };
 
-  #hardware.nvidia.prime = {
-    #reverseSync.enable = true;
-    #allowExternalGpu = true;
+  hardware.nvidia.prime = {
+    reverseSync.enable = true;
+    allowExternalGpu = true;
     
-    #intelBusId = "PCI:0:2:0";
-    #nvidiaBusId = "PCI:1:0:0";
+    intelBusId = "PCI:0:2:0";
+    nvidiaBusId = "PCI:1:0:0";
     #amdgpuBusId = "PCI:54:0:0"; # If you have an AMD iGPU
-  #};
+  };
 
   # Enable the XFCE Desktop Environment.
   #services.xserver.displayManager.sessionCommands = ''
