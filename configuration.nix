@@ -11,6 +11,16 @@
     ];
 
   # Bootloader.
+  boot = {
+    extraModulePackages = [ config.boot.kernelPackages.evdi ];
+    initrd = {
+    # List of modules that are always loaded by the initrd.
+      kernelModules = [
+        "evdi"
+        #"nvidia"
+      ];
+    };
+  };
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
@@ -37,7 +47,35 @@
   # Enable the X11 windowing system.
   services.xserver.enable = true;
 
+  nixpkgs.config.nvidia.acceptLicense = true;
+  #hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
+
+  hardware.graphics.enable = true;
+  hardware.graphics.enable32Bit = true;
+  services.xserver.videoDrivers = [ "nouveau" "modesetting" ];
+  #hardware.nvidia.open = false;
+
+  #hardware.nvidia = {
+  #  modesetting.enable = true;
+  #  powerManagement.enable = false;
+  #  open = false;
+    #nvidiaSettings = true;
+    #package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
+  #};
+
+  #hardware.nvidia.prime = {
+    #reverseSync.enable = true;
+    #allowExternalGpu = true;
+    
+    #intelBusId = "PCI:0:2:0";
+    #nvidiaBusId = "PCI:1:0:0";
+    #amdgpuBusId = "PCI:54:0:0"; # If you have an AMD iGPU
+  #};
+
   # Enable the XFCE Desktop Environment.
+  #services.xserver.displayManager.sessionCommands = ''
+    #${lib.getBin pkgs.xorg.xrandr}/bin/xrandr --setprovideroutputsource 3 0
+   #'';
   services.xserver.displayManager.lightdm.enable = true;
   services.xserver.desktopManager.xfce.enable = true;
 
@@ -86,6 +124,7 @@
     #media-session.enable = true;
   };
 
+  systemd.services.dlm.wantedBy = [ "multi-user.target" ];
   # enable bluetooth headphone buttons
   systemd.user.services.mpris-proxy = {
     description = "Mpris proxy";
@@ -93,6 +132,27 @@
     wantedBy = [ "default.target" ];
     serviceConfig.ExecStart = "${pkgs.bluez}/bin/mpris-proxy";
     };
+# --- THIS IS THE CRUCIAL PART FOR ENABLING THE SERVICE ---
+  systemd.services.displaylink-server = {
+    enable = true;
+    # Ensure it starts after udev has done its work
+    requires = [ "systemd-udevd.service" ];
+    after = [ "systemd-udevd.service" ];
+    wantedBy = [ "multi-user.target" ]; # Start at boot
+    # *** THIS IS THE CRITICAL 'serviceConfig' BLOCK ***
+    serviceConfig = {
+      Type = "simple"; # Or "forking" if it forks (simple is common for daemons)
+      # The ExecStart path points to the DisplayLinkManager binary provided by the package
+      ExecStart = "${pkgs.displaylink}/bin/DisplayLinkManager";
+      # User and Group to run the service as (root is common for this type of daemon)
+      User = "root";
+      Group = "root";
+      # Environment variables that the service itself might need
+      # Environment = [ "DISPLAY=:0" ]; # Might be needed in some cases, but generally not for this
+      Restart = "on-failure";
+      RestartSec = 5; # Wait 5 seconds before restarting
+    };
+  };
   # Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
 
@@ -203,9 +263,18 @@
      zsh
      oh-my-zsh
      nerdfonts
+     displaylink
+     autorandr
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
   #  wget
   ];
+
+  # auto discovery of network printers
+  services.avahi = {
+    enable = true;
+    nssmdns4 = true;
+    openFirewall = true;
+  };
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
