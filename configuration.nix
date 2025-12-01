@@ -52,7 +52,7 @@
 
   hardware.graphics.enable = true;
   hardware.graphics.enable32Bit = true;
-  services.xserver.videoDrivers = [ "nouveau" "modesetting" ];
+  services.xserver.videoDrivers = [ "modesetting" ];
   #hardware.nvidia.open = false;
 
   #hardware.nvidia = {
