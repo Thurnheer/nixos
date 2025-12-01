@@ -67,7 +67,7 @@
   };
 
   hardware.nvidia.prime = {
-    reverseSync.enable = true;
+    sync.enable = true;
     allowExternalGpu = true;
     
     intelBusId = "PCI:0:2:0";
