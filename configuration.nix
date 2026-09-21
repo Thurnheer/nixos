@@ -12,15 +12,27 @@
 
   # Bootloader.
   boot = {
-    extraModulePackages = [ config.boot.kernelPackages.evdi ];
     initrd = {
     # List of modules that are always loaded by the initrd.
       kernelModules = [
-        "evdi"
-        "nvidia"
+        "i915"
+        #"nvidia"
+        #"nvidia_modeset"
+        #"nvidia_drm"
       ];
     };
   };
+
+  boot.blacklistedKernelModules = [
+    "nouveau"
+    "nvidiafb"
+  ];
+
+  boot.kernelParams = [
+    "nvidia-drm.modeset=1"
+    #"i915.enable_dp_mst=0"
+  ];
+
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
@@ -44,43 +56,46 @@
   # Select internationalisation properties.
   i18n.defaultLocale = "en_US.UTF-8";
 
-  # Enable the X11 windowing system.
-  services.xserver.enable = true;
-
   nixpkgs.config.nvidia.acceptLicense = true;
   #hardware.nvidia.package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
 
-  hardware.graphics.enable = true;
-  hardware.graphics.enable32Bit = true;
-  hardware.graphics.extraPackages = with pkgs; [
-    vpl-gpu-rt
-    ];
-  services.xserver.videoDrivers = [ "nvidia" "intel-vaapi-driver" ];
+  hardware.graphics = {
+    enable = true;
+    enable32Bit = true;
+    extraPackages = with pkgs; [
+        vpl-gpu-rt
+      ];
+  };
+
+  # Enable the X11 windowing system.
+  services.xserver = {
+    enable = true;
+    videoDrivers = [ "nvidia" ];
+
+    displayManager.lightdm.enable = true;
+    desktopManager.xfce.enable = true;
+  };
   #hardware.nvidia.open = false;
 
   hardware.nvidia = {
+    package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
+    open = false;
     modesetting.enable = true;
     powerManagement.enable = false;
-    open = false;
     nvidiaSettings = true;
-    package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
-  };
-
-  hardware.nvidia.prime = {
-    sync.enable = true;
-    allowExternalGpu = true;
-    
-    intelBusId = "PCI:0:2:0";
-    nvidiaBusId = "PCI:1:0:0";
-    #amdgpuBusId = "PCI:54:0:0"; # If you have an AMD iGPU
+    prime = {
+        sync.enable = true;
+        #allowExternalGpu = true;
+        intelBusId = "PCI:0:2:0";
+        nvidiaBusId = "PCI:1:0:0";
+        #amdgpuBusId = "PCI:54:0:0"; # If you have an AMD iGPU
+      };
   };
 
   # Enable the XFCE Desktop Environment.
   #services.xserver.displayManager.sessionCommands = ''
     #${lib.getBin pkgs.xorg.xrandr}/bin/xrandr --setprovideroutputsource 3 0
    #'';
-  services.xserver.displayManager.lightdm.enable = true;
-  services.xserver.desktopManager.xfce.enable = true;
 
   # Enable i3
   #services.xserver.windowManager.i3 = {
@@ -109,7 +124,7 @@
   services.printing.enable = true;
 
   # Enable sound with pipewire.
-  hardware.pulseaudio.enable = false;
+  services.pulseaudio.enable = false;
   hardware.bluetooth.enable = true; # enables support for Bluetooth
   hardware.bluetooth.powerOnBoot = true; # powers up the default Bluetooth controller on boot
 
@@ -127,7 +142,6 @@
     #media-session.enable = true;
   };
 
-  systemd.services.dlm.wantedBy = [ "multi-user.target" ];
   # enable bluetooth headphone buttons
   systemd.user.services.mpris-proxy = {
     description = "Mpris proxy";
@@ -135,38 +149,30 @@
     wantedBy = [ "default.target" ];
     serviceConfig.ExecStart = "${pkgs.bluez}/bin/mpris-proxy";
     };
-# --- THIS IS THE CRUCIAL PART FOR ENABLING THE SERVICE ---
-  systemd.services.displaylink-server = {
-    enable = true;
-    # Ensure it starts after udev has done its work
-    requires = [ "systemd-udevd.service" ];
-    after = [ "systemd-udevd.service" ];
-    wantedBy = [ "multi-user.target" ]; # Start at boot
-    # *** THIS IS THE CRITICAL 'serviceConfig' BLOCK ***
-    serviceConfig = {
-      Type = "simple"; # Or "forking" if it forks (simple is common for daemons)
-      # The ExecStart path points to the DisplayLinkManager binary provided by the package
-      ExecStart = "${pkgs.displaylink}/bin/DisplayLinkManager";
-      # User and Group to run the service as (root is common for this type of daemon)
-      User = "root";
-      Group = "root";
-      # Environment variables that the service itself might need
-      # Environment = [ "DISPLAY=:0" ]; # Might be needed in some cases, but generally not for this
-      Restart = "on-failure";
-      RestartSec = 5; # Wait 5 seconds before restarting
-    };
-  };
   # Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
+  users.groups.win10disk = {};
   users.users.cth = {
     isNormalUser = true;
     description = "Christoph";
-    extraGroups = [ "networkmanager" "wheel" "sys" "network" "power" "vboxusers" "docker" "lp"
-    "win10disk" "disk" "dialout" "docker"];
+    extraGroups = [
+      "networkmanager"
+      "wheel"
+      "sys"
+      "network"
+      "power"
+      "vboxusers"
+      "docker"
+      "lp"
+      "win10disk"
+      "disk"
+      "dialout"
+      "docker"
+    ];
     packages = with pkgs; [
-       docker_26
+       docker_29
     #  thunderbird
      (vscode-with-extensions.override {
         vscodeExtensions = with vscode-extensions; [
@@ -225,24 +231,23 @@
           segger-jlink
       ];
     };
-
     services.udev.extraRules = ''
-        ENV{ID_PART_TABLE_UUID}=='579b23f9-843f-4fec-a246-0ed74800bef1", GROUP="win10disk"
+    SUBSYSTEM=="block", ENV{ID_PART_TABLE_UUID}=="579b23f9-843f-4fec-a246-0ed74800bef1", GROUP="win10disk", MODE="0660"
+    SUBSYSTEM=="tty", ATTRS{idVendor}=="05f9", ATTRS{idProduct}=="4204", SYMLINK+="gfe4500", MODE="0660", GROUP="dialout"
     '';
-  # Allow unfree packages
   nixpkgs.config.allowUnfree = true;
   nixpkgs.config.permittedInsecurePackages = [
-                "segger-jlink-qt4-796s"
+                "segger-jlink-qt4-874"
               ];
   nixpkgs.config.segger-jlink.acceptLicense = true;
 
    virtualisation.virtualbox.host.enable = true;
-   users.extraGroups.vboxusers.members = [ "cth" "win10disk" "disk" ];
+   #users.extraGroups.vboxusers.members = [ "cth" "win10disk" "disk" "dialout"];
    virtualisation.virtualbox.host.enableExtensionPack = true;
 
    virtualisation.docker.enable = true;
   #console config
-  fonts.packages = with pkgs; [nerdfonts];
+  fonts.packages = with pkgs; [nerd-fonts.jetbrains-mono];
   fonts.fontDir.enable = true;
 
   # List packages installed in system profile. To search, run:
@@ -265,19 +270,30 @@
      segger-jlink
      zsh
      oh-my-zsh
-     nerdfonts
-     displaylink
+     #nerdfonts
      autorandr
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
   #  wget
   ];
 
+hardware.printers = {
+  ensurePrinters = [
+    {
+      name = "MFP_Sharp_3";
+      location = "home";
+      deviceUri = "ipp://10.65.0.56:631/ipp";
+      model = "everywhere";
+    }
+  ];
+  ensureDefaultPrinter = "MFP_Sharp_3";
+};
   # auto discovery of network printers
-  services.avahi = {
-    enable = true;
-    nssmdns4 = true;
-    openFirewall = true;
-  };
+  # disable because it is dangerous
+  #services.avahi = {
+    #enable = true;
+    #nssmdns4 = true;
+    #openFirewall = true;
+  #};
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
